@@ -1,0 +1,417 @@
+---
+title: "Stats 101C Homework 6"
+author: "Christy Hui"
+date: "Due 12/03/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Problem 1
+
+### Part A
+
+``` {r}
+births = read.csv("better2000births.csv")
+sum(is.na(births))
+dim(births)
+```
+
+Instructions are incorrect. There are no NAs and there are 1998 observations (not 2000).
+
+``` {r}
+set.seed(1128)
+# factor all non-numeric for trees to work
+births$Gender = as.factor(births$Gender)
+births$Premie = as.factor(births$Premie)
+births$Marital = as.factor(births$Marital)
+births$Racemom = as.factor(births$Racemom)
+births$Racedad = as.factor(births$Racedad)
+births$Hispmom = as.factor(births$Hispmom)
+births$Hispdad = as.factor(births$Hispdad)
+births$Habit = as.factor(births$Habit)
+births$MomPriorCond = as.factor(births$MomPriorCond)
+births$BirthDef = as.factor(births$BirthDef)
+births$DelivComp = as.factor(births$DelivComp)
+births$BirthComp = as.factor(births$BirthComp)
+split = sample(dim(births)[1], 1000, replace = FALSE)
+# split data into training and testing
+births.train = births[split,]
+births.test = births[-split,]
+dim(births.train)
+dim(births.test)
+```
+
+With a prepped data set, we can now work on the models.
+
+``` {r}
+library(tree)
+library(caret)
+births.tree = tree(Premie~., data = births.train)
+plot(births.tree)
+text(births.tree)
+summary(births.tree)
+births.tree.pred = predict(births.tree, newdata = births.test, type = "class")
+confusionMatrix(as.factor(births.tree.pred), as.factor(births.test$Premie))
+mean(births.tree.pred != births.test$Premie)
+```
+
+The training misclassification error rate is 51/1000 (or 5.1%).
+
+The testing misclassification error rate is 62/998 (or 6.21242%).
+
+### Part B
+
+``` {r}
+births.cv = cv.tree(births.tree, FUN = prune.misclass)
+plot(births.cv$dev~births.cv$size)
+```
+
+By the above plot, we see (by CV) that the best amount of nodes needed is 3. Thus, we prune the tree to 3 nodes.
+
+```{r}
+births.pruned.fit = prune.misclass(births.tree, best = 3)
+plot(births.pruned.fit)
+text(births.pruned.fit, pretty = TRUE)
+```
+
+Above is the plot for the pruned tree.
+
+``` {r}
+summary(births.pruned.fit)
+births.pruned.fit.pred = predict(births.pruned.fit, newdata = births.test, type = "class")
+confusionMatrix(as.factor(births.pruned.fit.pred),
+                as.factor(births.test$Premie))
+mean(births.pruned.fit.pred != births.test$Premie)
+```
+
+The misclassification rate for the training data (with 3 nodes) is 54/1000 (or 5.4%).
+
+The misclassification rate for the testing data (with 3 nodes) is 57/998 (or 5.71%).
+
+This is a bit better than the regular tree. Thus, we conclude that this pruned tree performs better.
+
+### Part C
+
+According to the pruned tree, we see the "weight" variable being the only predictor needed in order to tell whether or not a baby is premature. Smoking is NOT a potential cause of premature births according to this tree.
+
+### Part D
+
+``` {r}
+mean((births.pruned.fit.pred) != (births.test$Premie))
+```
+
+The misclassification rate for the testing data (with 3 nodes) is 0.05711423. If a doctor always only has a 9% misclassification error, we can conclude that he or she does worse than the tree models. In other words, our tree models perform better than an average doctor.
+
+
+## Problem 2
+
+### Part A
+
+``` {r}
+birthsweight.tree = tree(weight~., data = births.train)
+plot(birthsweight.tree)
+text(birthsweight.tree)
+summary(birthsweight.tree)
+birthsweight.tree.pred = predict(birthsweight.tree, newdata = births.test)
+birthsweight.tree.mse = mean((birthsweight.tree.pred - births.test$weight)^2)
+birthsweight.tree.mse
+```
+
+The testing MSE is 274.6267.
+
+### Part B
+
+``` {r}
+birthsweight.cv = cv.tree(birthsweight.tree, FUN = prune.tree)
+plot(birthsweight.cv$dev ~ birthsweight.cv$size, type = "b" )
+```
+By the above plot, we see that 4 nodes performs the best. However, to perhaps prevent over fitting, let us use 3.
+
+``` {r}
+birthsweight.pruned.fit = prune.tree(birthsweight.tree, best = 3)
+plot(birthsweight.pruned.fit)
+text(birthsweight.pruned.fit, pretty = TRUE)
+```
+
+Above is the plot for a pruned tree with 3 nodes.
+
+``` {r}
+summary(birthsweight.pruned.fit)
+birthsweight.pruned.fit.pred = predict(births.pruned.fit, newdata = births.test)
+```
+
+### Part C
+
+To predict a baby's weight, the best predictor used is "Premie." Another important predictor in predicting a baby's weight is Apgar1. The number of visits predictor is NOT an important feature in predicting baby weight.
+
+### Part D
+
+``` {r}
+birthsweight.pruned.fit.mse = mean((birthsweight.pruned.fit.pred - births.test$weight)^2)
+birthsweight.pruned.fit.mse
+```
+
+Above is the testing MSE with the pruned tree.
+
+
+## Problem 3
+
+``` {r}
+icu = read.csv("icu_data.csv")
+sum(is.na(icu))
+# factor all non-numeric for trees to work
+icu$STA = as.factor(icu$STA)
+icu$race.n = as.factor(icu$race.n)
+icu$SER = as.factor(icu$SER)
+icu$CAN = as.factor(icu$CAN)
+icu$CRN = as.factor(icu$CRN)
+icu$INF = as.factor(icu$INF)
+icu$CPR = as.factor(icu$CPR)
+icu$PRE = as.factor(icu$PRE)
+icu$TYP = as.factor(icu$TYP)
+icu$FRA = as.factor(icu$FRA)
+icu$LOC = as.factor(icu$LOC)
+# split data
+split = sample(dim(icu)[1], dim(icu)[1]*0.70, replace = FALSE)
+icu.train = icu[split,]
+icu.test = icu[-split,]
+dim(icu.train)
+dim(icu.test)
+```
+
+### Part A
+
+``` {r}
+library(randomForest)
+icu.bag = randomForest(STA ~., data = icu.train, mtry = 19, importance = TRUE)
+summary(icu.bag)
+icu.bag
+# train confusion matrix
+icu.bag.pred = predict(icu.bag, newdata = icu.train)
+confusionMatrix(as.factor(icu.bag.pred),
+                as.factor(icu.train$STA))
+# test confusion matrix
+icu.bag.pred = predict(icu.bag, newdata = icu.test)
+confusionMatrix(as.factor(icu.bag.pred),
+                as.factor(icu.test$STA))
+```
+
+The misclassification rate of the training data is 0%
+
+The misclassification rate of the testing data is 30%
+
+### Part B
+
+``` {r}
+importance(icu.bag)
+varImpPlot(icu.bag)
+```
+
+The 6 most important predictors according to accuracy is LOC, SER, CRN, sys.c, PO2, age.c, and BIC.
+
+### Part C
+
+``` {r}
+icu.rf = randomForest(STA ~., data = icu.train, mtry = 6, importance = TRUE)
+summary(icu.rf)
+icu.rf
+# train confusion matrix
+icu.rf.pred = predict(icu.rf, newdata = icu.train)
+confusionMatrix(as.factor(icu.rf.pred),
+                as.factor(icu.train$STA))
+# test confusion matrix
+icu.rf.pred = predict(icu.rf, newdata = icu.test)
+confusionMatrix(as.factor(icu.rf.pred),
+                as.factor(icu.test$STA))
+```
+
+### Part D
+
+``` {r}
+k <- 1
+icu.misclassification <- c()
+tree_num <- c(seq(0.1, 0.9, 0.5), 1:200)
+for(i in tree_num) {
+  icu_train1 <- randomForest(STA~.,
+                             data = icu.train,
+                             mtry = 6,
+                             importance = TRUE,
+                             ntree = i * 10)
+  pred <- predict(icu_train1, newdata = icu.test)
+  icu.misclassification[k] <- mean((pred) != (icu.test$STA))
+  k <- k + 1
+}
+which.min(icu.misclassification)*10
+```
+
+``` {r}
+qplot(tree_num,icu.misclassification) + geom_line() + geom_vline(xintercept = which.min(icu.misclassification) * 10, color = "blue" )
+```
+
+## Problem 4
+
+### Part A
+
+``` {r}
+arrest = read.csv("USArrest.csv")
+sum(is.na(arrest))
+rownames(arrest) = arrest[, 1]
+arrest = arrest[, -1]
+arrest.hclust = hclust(dist(arrest, method = "euclidean"), 
+                       method = "complete")
+plot(arrest.hclust)
+rect.hclust(arrest.hclust , k = 3, border = 2:6)
+abline(h = 3, col = 'red')
+```
+
+### Part B
+
+``` {r}
+arrest.hclust3 = cutree(arrest.hclust, k = 3)
+table(arrest.hclust3)
+arrest.hclust3
+```
+
+The above shows which state belongs to which cluster. For example, Alabama belongs to cluster 1, Arkansas belongs to cluster 2, and Conneticut belongs to cluster 3. In total, there are 16 states in cluster 1, 14 in cluster 2, and 20 in cluster 3.
+### Part C
+
+``` {r}
+arrest = scale(arrest)
+arrest.hclust.scaled = hclust(dist(arrest, method = "euclidean"), 
+                              method = "complete")
+plot(arrest.hclust.scaled)
+rect.hclust(arrest.hclust.scaled , k = 3, border = 2:6)
+abline(h = 3, col = 'red')
+```
+
+``` {r}
+arrest.hclust3.scaled = cutree(arrest.hclust.scaled, k = 3)
+table(arrest.hclust3.scaled)
+arrest.hclust3.scaled
+```
+
+After scaling the variables, we see that there are 8 states in cluster 1, 11 states in cluster 2, and 31 states in cluster 3.
+
+### Part D
+
+Scaling has greatly affected the clusters. In a way, it has made them more accurate. We should always look to scale when doing hierarchical clustering, since it is dependent on distance (in our case, we decided on euclidean distance). With a scaled data set, we now have a more accurate representation of clusters.
+
+Furthermore, by scaling the predictors, we now have a shorter tree. This is important to note, since it allows us to say that the tree is a simpler model.
+
+
+## Problem 5
+
+### Part A
+
+``` {r}
+olives = read.csv("Olives.csv")
+olives = olives[, -c(3, 1)]
+olives$region = as.factor(olives$region)
+olives[, 2:9] = scale(olives[, 2:9])
+```
+
+### Part B
+
+``` {r}
+olives.kmeans = kmeans(olives, 3)
+olives.hclust = hclust(dist(olives, method = "euclidean"), 
+                       method = "average")
+olives.hclust3 = cutree(olives.hclust, k = 3)
+```
+
+### Part C
+
+``` {r}
+summary(olives.kmeans)
+library(useful)
+plot(olives.kmeans, data = olives)
+table(olives.kmeans$cluster)
+```
+
+Above is the kmeans() plot as well as the table that tells us how many data points belong to each of the 3 clusters. Notice how it is not extremely easy determining the difference between the three clusters (since they are so close to each other in the center).
+
+``` {r}
+summary(olives.hclust3)
+plot(olives.hclust)
+rect.hclust(olives.hclust , k = 3, border = 2:6)
+abline(h = 3, col = 'red')
+table(olives.hclust3)
+```
+
+Above is the tree plot for the olives data set as well as the table that tell us how many data points belong to each of the 3 clusters.
+
+### Part D
+
+Notice that the two methods have wildly different data points in each cluster. 
+
+``` {r}
+table(Cluster = as.factor(olives.kmeans$cluster),
+      Region = as.factor(olives$region))
+```
+
+Looking at the table, we can infer that cluster 1 correctly classified 98 points as region 2. Cluster 2 correctly classified 248 points as region 1. Cluster 3 correctly classified 140 points as region 3.
+
+Cluster 1 had an accuracy rate of 0.873065.
+
+Cluster 2 had an accuracy rate of 1.
+
+Cluster 3 had an accuracy rate of 0.9271523.
+
+``` {r}
+table(Cluster = as.factor(olives.hclust3),
+      Region = as.factor(olives$region))
+```
+
+Looking at this table, we can infer that cluster 1 correctly classified 323 points as region 1. Cluster 2 correctly classified 150 points as region 3. Cluster 3 correctly classified 0 points as region 2.
+
+Cluster 1 had an accuracy rate of 1.
+
+Cluster 2 had an accuracy rate of 0.9933775.
+
+Cluster 3 had an accuracy rate of 0.
+
+It seems on average, hierarchical clustering did better than kmeans.
+
+### Part E
+
+``` {r}
+library(pls)
+olives.pcr = pcr(as.numeric(region) ~ ., data = olives)
+summary(olives.pcr)
+```
+
+The amount of variation explained from the first component is 46.52%. The amount of variation explained from the second component is 68.59%.
+
+### Part F
+
+``` {r}
+qplot(olives.pcr$scores[,1], olives.pcr$scores[,2], color = olives$region)
+```
+
+Above is the plot where the PCA components are plotted against each other. Notice how difficult it is to plot region 2 from 3.
+
+``` {r}
+olives.pca.kmeans = kmeans(cbind(olives.pcr$scores[,1], olives.pcr$scores[,2]), 3)
+table(Cluster = as.factor(olives.pca.kmeans$cluster),
+      Region = olives$region)
+qplot(olives.pcr$scores[,1], olives.pcr$scores[,2], color = olives.pca.kmeans$cluster)
+```
+
+Notice how it seems to be a lot easier, now that we have used kmeans, to cluster the points, since points seem to be LESS cluttered. However, both seem to do pretty poorly. This is probably because the regions are already quite cluttered already, and it is difficult for the unsupervised learning process to clutter them correctly.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
